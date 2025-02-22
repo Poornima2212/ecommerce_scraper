@@ -1,16 +1,27 @@
-<p style="color: green"><%= notice %></p>
-
-<% content_for :title, "Products" %>
-
 <h1>Products</h1>
 
-<div id="products">
-  <% @products.each do |product| %>
-    <%= render product %>
-    <p>
-      <%= link_to "Show this product", product %>
-    </p>
-  <% end %>
-</div>
+<%= form_with url: search_products_path, method: :get, remote: true, id: "search-form" do %>
+  <input type="text" name="query" id="search-input" placeholder="Search Products">
+  <select name="category" id="category-select">
+    <option value="">All Categories</option>
+    <% Category.all.each do |category| %>
+      <option value="<%= category.name %>"><%= category.name %></option>
+    <% end %>
+  </select>
+<% end %>
 
-<%= link_to "New product", new_product_path %>
+<table>
+  <thead>
+    <tr>
+      <th>Title</th>
+      <th>Price</th>
+      <th>Category</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="products-list">
+    <%= render partial: "products/list", locals: { products: @products } %>
+  </tbody>
+</table>
+
+<%= link_to "Scrape New Product", new_product_path %>

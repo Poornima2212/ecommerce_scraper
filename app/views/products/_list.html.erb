@@ -1,0 +1,11 @@
+<% products.each do |product| %>
+  <tr>
+    <td><%= link_to product.title, product %></td>
+    <td><%= product.price || "N/A" %></td>
+    <td><%= product.category.name if product.category %></td>
+    <td>
+      <%= link_to "Edit", edit_product_path(product) %> |
+      <%= link_to "Delete", product, method: :delete, data: { confirm: "Are you sure?" } %>
+    </td>
+  </tr>
+<% end %>

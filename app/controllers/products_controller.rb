@@ -1,70 +1,78 @@
 class ProductsController < ApplicationController
-  before_action :set_product, only: %i[ show edit update destroy ]
+  before_action :set_product, only: %i[show edit update destroy]
 
-  # GET /products or /products.json
   def index
-    @products = Product.all
+    @products = Product.includes(:category).all
   end
 
-  # GET /products/1 or /products/1.json
   def show
+    @product = Product.find(params[:id])
+  
+    # If product is older than a week, schedule an update
+    if @product.last_fetched_at.nil? || @product.last_fetched_at.to_time < 1.week.ago
+      UpdateProductJob.perform_later(@product.id)
+    end
   end
-
-  # GET /products/new
+  
   def new
     @product = Product.new
+     Rails.logger.debug "Product instance: #{@product.inspect}"
   end
 
-  # GET /products/1/edit
-  def edit
-  end
-
-  # POST /products or /products.json
   def create
-    @product = Product.new(product_params)
+    url = params[:product][:url]
+    data = ScraperService.scrape(url)
 
-    respond_to do |format|
+    if data.present?
+      category_name = data[:category] || "Unknown" # Get category name
+      category = Category.find_or_create_by(name: category_name) # Get category object
+    
+      @product = category.products.new(data.except(:category)) # Remove category from data hash
+    
       if @product.save
-        format.html { redirect_to @product, notice: "Product was successfully created." }
-        format.json { render :show, status: :created, location: @product }
+        redirect_to @product, notice: "Product scraped and saved!"
       else
-        format.html { render :new, status: :unprocessable_entity }
-        format.json { render json: @product.errors, status: :unprocessable_entity }
+        render :new, alert: "Error saving product"
       end
-    end
+    end    
   end
-
-  # PATCH/PUT /products/1 or /products/1.json
   def update
-    respond_to do |format|
-      if @product.update(product_params)
-        format.html { redirect_to @product, notice: "Product was successfully updated." }
-        format.json { render :show, status: :ok, location: @product }
-      else
-        format.html { render :edit, status: :unprocessable_entity }
-        format.json { render json: @product.errors, status: :unprocessable_entity }
-      end
+    if @product.update(product_params)
+      redirect_to @product, notice: "Product was successfully updated."
+    else
+      render :edit, status: :unprocessable_entity
     end
   end
 
-  # DELETE /products/1 or /products/1.json
-  def destroy
-    @product.destroy!
-
-    respond_to do |format|
-      format.html { redirect_to products_path, status: :see_other, notice: "Product was successfully destroyed." }
-      format.json { head :no_content }
+  def search
+    @products = Product.all
+  
+    if params[:query].present?
+      @products = @products.where("LOWER(title) LIKE ?", "%#{params[:query].downcase}%")
     end
+  
+    if params[:category].present?
+      @products = @products.joins(:category).where(categories: { name: params[:category] })
+    end
+  
+    respond_to do |format|
+      format.html { render partial: "products/list", locals: { products: @products } }
+    end
+  end
+  
+
+  def destroy
+    @product.destroy
+    redirect_to products_path, notice: "Product deleted."
   end
 
   private
-    # Use callbacks to share common setup or constraints between actions.
-    def set_product
-      @product = Product.find(params.expect(:id))
-    end
 
-    # Only allow a list of trusted parameters through.
-    def product_params
-      params.expect(product: [ :title, :description, :price, :size, :contact_info, :url, :last_fetched_at, :category_id ])
-    end
+  def set_product
+    @product = Product.find(params[:id])
+  end
+
+  def product_params
+    params.require(:product).permit(:title, :description, :price, :size, :contact_info, :category_id, :url, :last_fetched_at)
+  end
 end

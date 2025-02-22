@@ -1,11 +1,12 @@
-<% content_for :title, "New product" %>
+<h1>Scrape a Product</h1>
 
-<h1>New product</h1>
+<%= form_with model: (@product || Product.new), local: true do |form| %>
+  <div>
+    <%= form.label :url, "Product URL" %>
+    <%= form.text_field :url, required: true %>
+  </div>
 
-<%= render "form", product: @product %>
-
-<br>
-
-<div>
-  <%= link_to "Back to products", products_path %>
-</div>
+  <div>
+    <%= form.submit "Scrape and Save Product" %>
+  </div>
+<% end %>
